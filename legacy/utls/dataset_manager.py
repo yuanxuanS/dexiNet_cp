@@ -263,10 +263,11 @@ def rotated_img_extractor(x=None, gt=None,img_width=None, img_height=None,i=None
 def augment_data(args):
 
     data_for = 'train'  # choice [train validation, test]
+    # False为进行该种变换
     imgs_splitted = True
     imgs_rotated = True
     imgs_flipped = True
-    imgs_gamma_corrected = True
+    imgs_gamma_corrected = False
 
     # degrees
     #          [19, 46, 57,  90,  114,   138, 161, 180,  207, 230,   247   270,  285,  322, 342]
@@ -274,9 +275,9 @@ def augment_data(args):
     # if data_for=='train':
     # **************** training data ************************#
     if data_for=='train' and not args.use_nir:
-        base_dataset_dir = args.dataset_dir.lower() + args.train_dataset + '/edges'
-        GT_dir = os.path.join(base_dataset_dir, 'edge_maps/train/rgbr/aug')
-        X_dir = os.path.join(base_dataset_dir, 'imgs/train/rgbr/aug')
+        base_dataset_dir = args.dataset_dir + args.train_dataset + '/'+ args.train_dataset+ '/BIPED/edges'
+        GT_dir = os.path.join(base_dataset_dir, 'edge_maps/train/rgbr/')
+        X_dir = os.path.join(base_dataset_dir, 'imgs/train/rgbr/')
         # this implementation is just for BIPED dataset
         gt_list = os.listdir(os.path.join(GT_dir,'real'))  #
         gt_list.sort()
@@ -308,6 +309,7 @@ def augment_data(args):
                     os.path.join(X_dir,'real'), x_list[i]))
                 gt_tmp = cv.imread(os.path.join(
                     os.path.join(GT_dir,'real'),gt_list[i]))
+                # width切割成: height和剩余width-height大小两种
                 x_tmp1 = x_tmp[:,0:img_height,:]
                 x_tmp2 = x_tmp[:,img_width-img_height:img_width,:]
 
@@ -325,7 +327,7 @@ def augment_data(args):
         if not imgs_rotated:
 
             # for p1 ***********
-            folder_name='real'  # choice [p1,p2,real] which are the source of files previously prepared
+            folder_name='p2'  # choice [p1,p2,real] which are the source of files previously prepared
             # folder_name_x = 'real'
             if folder_name=='p1':
                 x_aug_list = os.listdir(os.path.join(X_dir, 'p1'))
@@ -395,10 +397,10 @@ def augment_data(args):
                     cv.imwrite(os.path.join(current_GT_dir,gt_aug_list[j]),rot_gt)
                     cv.imwrite(os.path.join(current_X_dir, x_aug_list[j]),rot_x)
                     tmp_imgs = np.concatenate((rot_x,rot_gt), axis=1)
-                    cv.imshow("rotated", tmp_imgs)
-                    cv.waitKey(400) # 1000= 1 seg
+                    # cv.imshow("rotated", tmp_imgs)
+                    # cv.waitKey(400) # 1000= 1 seg
                 print("rotation with {} degrees fullfiled ".format(i))
-            cv.destroyAllWindows()
+            # cv.destroyAllWindows()
             print("... rotation done in ", folder_name)
 
         # **************** flipping horizontally ***********
@@ -428,13 +430,13 @@ def augment_data(args):
                     flip_gt = np.fliplr(gt_tmp)
 
                     tmp_imgs = np.concatenate((flip_x, flip_gt), axis=1)
-                    cv.imshow("rotated", tmp_imgs)
-                    cv.waitKey(350)
+                    # cv.imshow("rotated", tmp_imgs)
+                    # cv.waitKey(350)
                     cv.imwrite(os.path.join(save_dir_gt,GT_list[j]),flip_gt)
                     cv.imwrite(os.path.join(save_dir_x, X_list[j]),flip_x)
 
                 print("End flipping file in {}".format(os.path.join(X_dir,i)))
-            cv.destroyAllWindows()
+            # cv.destroyAllWindows()
             print("... Flipping  data augmentation finished")
 
         # ***********Data augmentation based on gamma correction **********
@@ -477,15 +479,15 @@ def augment_data(args):
                     tmp_imgs2 = np.concatenate((gam60_x, gt_tmp), axis=1)
                     tmp_imgs = np.concatenate((tmp_imgs2,tmp_imgs1),axis=0)
 
-                    cv.imshow("gamma ", tmp_imgs)
-                    cv.waitKey(350)
+                    # cv.imshow("gamma ", tmp_imgs)
+                    # cv.waitKey(350)
                     cv.imwrite(os.path.join(save_dir_gt30, GT_list[j]), gt_tmp)
                     cv.imwrite(os.path.join(save_dir_x30, X_list[j]), gam30_x)
                     cv.imwrite(os.path.join(save_dir_gt60, GT_list[j]), gt_tmp)
                     cv.imwrite(os.path.join(save_dir_x60, X_list[j]), gam60_x)
 
                 print("End gamma correction, file in {}".format(os.path.join(X_dir, i)))
-            cv.destroyAllWindows()
+            # cv.destroyAllWindows()
             print("... gamma correction  data augmentation finished")
 
     # ************** for validation ********************************

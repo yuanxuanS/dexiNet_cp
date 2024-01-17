@@ -219,7 +219,7 @@ class DexiNed(nn.Module):
         # Block 2
         block_2 = self.block_2(block_1)
         block_2_down = self.maxpool(block_2)
-        block_2_add = block_2_down + block_1_side
+        block_2_add = block_2_down + block_1_side   # block2 + blk1强化(block1输出 side conv)
         block_2_side = self.side_2(block_2_add)
 
         # Block 3

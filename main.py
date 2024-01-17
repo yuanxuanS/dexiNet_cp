@@ -48,6 +48,8 @@ def train_one_epoch(epoch, dataloader, model, criterion, optimizer, device,
         if batch_id % 5 == 0:
             print(time.ctime(), 'Epoch: {0} Sample {1}/{2} Loss: {3}'
                   .format(epoch, batch_id, len(dataloader), loss.item()))
+            
+        # 一定间隔保存中间结果
         if batch_id % log_interval_vis == 0:
             res_data = []
 
@@ -197,7 +199,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='DexiNed trainer.')
     parser.add_argument('--choose_test_data',
                         type=int,
-                        default=-1,
+                        default=0,
                         help='Already set the dataset for testing choice: 0 - 8')
     # ----------- test -------0--
 
@@ -222,9 +224,12 @@ def parse_args():
                         type=str,
                         default=test_inf['data_dir'],
                         help='the path to the directory with the input data for validation.')
+    this_time = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
     parser.add_argument('--output_dir',
                         type=str,
-                        default='checkpoints',
+                        # default='exper/checkpoints_pp/'+this_time,
+                        default='exper/checkpoints_pp/2024-01-17_16-56-25',
+                        # +this_time,
                         help='the path to output the results.')
     parser.add_argument('--train_data',
                         type=str,
@@ -257,7 +262,7 @@ def parse_args():
                         help='use previous trained data')  # Just for test
     parser.add_argument('--checkpoint_data',
                         type=str,
-                        default='10/10_model.pth',# 4 6 7 9 14
+                        default='16/16_model.pth',# 4 6 7 9 14
                         help='Checkpoint path from which to restore model weights from.')
     parser.add_argument('--test_img_width',
                         type=int,
@@ -269,7 +274,7 @@ def parse_args():
                         help='Image height for testing.')
     parser.add_argument('--res_dir',
                         type=str,
-                        default='result',
+                        default='result_pp/2024-01-17_16-56-25',
                         help='Result directory')
     parser.add_argument('--log_interval_vis',
                         type=int,
@@ -395,7 +400,7 @@ def main(args):
     # Testing
     if args.is_testing:
 
-        output_dir = os.path.join(args.res_dir, args.train_data+"2"+ args.test_data)
+        output_dir = os.path.join(args.res_dir, args.train_data+"2"+ args.test_data + "_pp")
         print(f"output_dir: {output_dir}")
         if args.double_img:
             # predict twice an image changing channels, then mix those results

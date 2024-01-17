@@ -3,9 +3,21 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# my
+*.png
+*.mat
+*.jpg
 # C extensions
 *.so
-
+.history/
+checkpoints/
+checkpoints_pp/
+datasets/
+result/
+result_pp/
+*.zip
+.vscode/
+data/
 # Distribution / packaging
 .Python
 build/

@@ -86,7 +86,7 @@ def dataset_info(dataset_name, is_linux=True):
                 'img_width': 1280, # 1280 5 1920
                 'test_list': 'test_pair.lst',
                 'train_list': 'train_rgb.lst',
-                'data_dir': '/opt/dataset/BIPED',  # mean_rgb
+                'data_dir': '/home/panpan/DexiNed/datasets/BIPEDv2/BIPEDv2/BIPED/',  # mean_rgb
                 'yita': 0.5
             },
             'CLASSIC': {
@@ -319,7 +319,7 @@ class TestDataset(Dataset):
 class BipedDataset(Dataset):
     train_modes = ['train', 'test', ]
     dataset_types = ['rgbr', ]
-    data_types = ['aug', ]
+    data_types = ["real", "p1", ""]
 
     def __init__(self,
                  data_root,
@@ -336,7 +336,7 @@ class BipedDataset(Dataset):
         self.data_root = data_root
         self.train_mode = train_mode
         self.dataset_type = dataset_type
-        self.data_type = 'aug'  # be aware that this might change in the future
+        # self.data_type = 'real'  # be aware that this might change in the future
         self.img_height = img_height
         self.img_width = img_width
         self.mean_bgr = mean_bgr
@@ -348,7 +348,7 @@ class BipedDataset(Dataset):
     def _build_index(self):
         assert self.train_mode in self.train_modes, self.train_mode
         assert self.dataset_type in self.dataset_types, self.dataset_type
-        assert self.data_type in self.data_types, self.data_type
+        # assert self.data_type in self.data_types, self.data_type
 
         data_root = os.path.abspath(self.data_root)
         sample_indices = []
@@ -357,15 +357,15 @@ class BipedDataset(Dataset):
             images_path = os.path.join(data_root,
                                        'edges/imgs',
                                        self.train_mode,
-                                       self.dataset_type,
-                                       self.data_type)
+                                       self.dataset_type)
+                                    #    self.data_type)
             labels_path = os.path.join(data_root,
                                        'edges/edge_maps',
                                        self.train_mode,
-                                       self.dataset_type,
-                                       self.data_type)
+                                       self.dataset_type)
+                                    #    self.data_type)
 
-            for directory_name in os.listdir(images_path):
+            for directory_name in os.listdir(images_path):  # 文件夹下的所有子文件夹
                 image_directories = os.path.join(images_path, directory_name)
                 for file_name_ext in os.listdir(image_directories):
                     file_name = os.path.splitext(file_name_ext)[0]
