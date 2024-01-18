@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import cv2
+import numpy as np
 
 def weight_init(m):
     if isinstance(m, (nn.Conv2d,)):
@@ -198,6 +199,7 @@ class DexiNed(nn.Module):
 
         self.apply(weight_init)
 
+        
     def slice(self, tensor, slice_shape):
         t_shape = tensor.shape
         height, width = slice_shape
@@ -209,22 +211,41 @@ class DexiNed(nn.Module):
         # tensor[..., :height, :width]
         return new_tensor
 
+    
     def forward(self, x):
         assert x.ndim == 4, x.shape
-
+        # get canny
+        batch_s = x.size()[0]
+        canny_batch = torch.zeros_like(x)
+        for b in range(batch_s):
+            x_ = x[b, ...]
+            canny_ = torch.Tensor(cv2.Canny(np.array(x_.clone().to("cpu").squeeze(0).permute(1,2,0), dtype=np.uint8), 100, 200))       # 非极大阈值的 两个阈值
+            canny_ = canny_.unsqueeze(0).unsqueeze(0).to(x_.device)# same dims, same device
+            canny_batch[b, ...] = canny_
+        canny_maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        
         # Block 1
-        block_1 = self.block_1(x)
+        block_1 = self.block_1(x)   # I / 2
         block_1_side = self.side_1(block_1)
 
+        # add canny before next block
+        block_1 = block_1 + canny_maxpool(canny_)
+        
         # Block 2
-        block_2 = self.block_2(block_1)
-        block_2_down = self.maxpool(block_2)
+        block_2 = self.block_2(block_1)     
+        # add canny before next block
+        block_2 = block_2 + canny_maxpool(canny_)
+        block_2_down = self.maxpool(block_2)    # /2
         block_2_add = block_2_down + block_1_side   # block2 + blk1强化(block1输出 side conv)
         block_2_side = self.side_2(block_2_add)
 
         # Block 3
         block_3_pre_dense = self.pre_dense_3(block_2_down)
-        block_3, _ = self.dblock_3([block_2_add, block_3_pre_dense])
+        
+        
+        block_3, _ = self.dblock_3([block_2_add, block_3_pre_dense])        # /2
+        # add canny before next block
+        block_3 = block_3 + canny_maxpool(canny_maxpool(canny_))
         block_3_down = self.maxpool(block_3) # [128,256,50,50]
         block_3_add = block_3_down + block_2_side
         block_3_side = self.side_3(block_3_add)
@@ -232,7 +253,9 @@ class DexiNed(nn.Module):
         # Block 4
         block_2_resize_half = self.pre_dense_2(block_2_down)
         block_4_pre_dense = self.pre_dense_4(block_3_down+block_2_resize_half)
-        block_4, _ = self.dblock_4([block_3_add, block_4_pre_dense])
+        block_4, _ = self.dblock_4([block_3_add, block_4_pre_dense])        # /2
+        # add canny before next block
+        block_4 = block_4 + canny_maxpool(canny_maxpool(canny_maxpool(canny_)))
         block_4_down = self.maxpool(block_4)
         block_4_add = block_4_down + block_3_side
         block_4_side = self.side_4(block_4_add)
@@ -240,12 +263,16 @@ class DexiNed(nn.Module):
         # Block 5
         block_5_pre_dense = self.pre_dense_5(
             block_4_down) #block_5_pre_dense_512 +block_4_down
-        block_5, _ = self.dblock_5([block_4_add, block_5_pre_dense])
+        block_5, _ = self.dblock_5([block_4_add, block_5_pre_dense])        # /2
+        # add canny before next block
+        block_5 = block_5 + canny_maxpool(canny_maxpool(canny_maxpool(canny_maxpool(canny_))))
         block_5_add = block_5 + block_4_side
 
         # Block 6
         block_6_pre_dense = self.pre_dense_6(block_5)
         block_6, _ = self.dblock_6([block_5_add, block_6_pre_dense])
+        # add canny before next block
+        block_6 = block_6 + canny_maxpool(canny_maxpool(canny_maxpool(canny_maxpool(canny_))))
 
         # upsampling blocks
         out_1 = self.up_block_1(block_1)
