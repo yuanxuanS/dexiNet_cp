@@ -66,11 +66,13 @@ class _DenseLayer(nn.Sequential):
 
     def forward(self, x):
         x1, x2 = x
-
+        # 对x1提取特征
         new_features = super(_DenseLayer, self).forward(F.relu(x1))  # F.relu()
         # if new_features.shape[-1]!=x2.shape[-1]:
         #     new_features =F.interpolate(new_features,size=(x2.shape[2],x2.shape[-1]), mode='bicubic',
         #                                 align_corners=False)
+        
+        # 将x2 和x1特征分半融合； 且x2仍传给下一个blk : x2就是paper中从上一个blk来，要add的特征。
         return 0.5 * (new_features + x2), x2
 
 
@@ -79,6 +81,39 @@ class _DenseBlock(nn.Sequential):
         super(_DenseBlock, self).__init__()
         for i in range(num_layers):
             layer = _DenseLayer(input_features, out_features)
+            self.add_module('denselayer%d' % (i + 1), layer)
+            input_features = out_features
+        # _DenseBlock没定义forward, 可能是add_module添加的模块，forward会自动调用这些module
+
+
+class _CannyLayer(nn.Sequential):
+    def __init__(self, input_features, out_features):
+        super(_CannyLayer, self).__init__()
+
+        # self.add_module('relu2', nn.ReLU(inplace=True)),
+        self.add_module('conv1', nn.Conv2d(input_features, out_features,
+                                           kernel_size=3, stride=1, padding=2, bias=True)),
+        self.add_module('norm1', nn.BatchNorm2d(out_features)),
+        self.add_module('relu1', nn.ReLU(inplace=True)),
+        self.add_module('conv2', nn.Conv2d(out_features, out_features,
+                                           kernel_size=3, stride=1, bias=True)),
+        self.add_module('norm2', nn.BatchNorm2d(out_features))
+
+    def forward(self, x):
+        new_features = super(_CannyLayer, self).forward(F.relu(x))  # F.relu()
+        # if new_features.shape[-1]!=x2.shape[-1]:
+        #     new_features =F.interpolate(new_features,size=(x2.shape[2],x2.shape[-1]), mode='bicubic',
+        #                                 align_corners=False)
+        
+        # 将x2 和x1特征分半融合； 且x2仍传给下一个blk : x2就是paper中从上一个blk来，要add的特征。
+        return new_features
+
+
+class _CannyBlock(nn.Sequential):
+    def __init__(self, num_layers, input_features, out_features):
+        super(_CannyBlock, self).__init__()
+        for i in range(num_layers):
+            layer = _CannyLayer(input_features, out_features)
             self.add_module('denselayer%d' % (i + 1), layer)
             input_features = out_features
 
@@ -317,7 +352,7 @@ class DexiNed(nn.Module):
 
 
 if __name__ == '__main__':
-    batch_size = 8
+    batch_size = 1
     img_height = 352
     img_width = 352
 
@@ -326,7 +361,9 @@ if __name__ == '__main__':
     input = torch.rand(batch_size, 3, img_height, img_width).to(device)
     # target = torch.rand(batch_size, 1, img_height, img_width).to(device)
     print(f"input shape: {input.shape}")
-    model = DexiNed().to(device)
+    # model = DexiNed().to(device)
+    
+    model = _CannyBlock(3, 3, 512)
     output = model(input)
     print(f"output shapes: {[t.shape for t in output]}")
 
