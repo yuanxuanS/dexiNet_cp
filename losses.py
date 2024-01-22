@@ -30,6 +30,7 @@ def bdcn_loss2(inputs, targets, l_weight=1.1):
     mask[mask <= 0.] = 1.1 * num_positive / (num_positive + num_negative)  # before mask[mask <= 0.1]
     # mask[mask == 2] = 0
     inputs= torch.sigmoid(inputs)
+    # reduction="none"会返回batch中每个loss， dim=input, [batch, c, h,w]
     cost = torch.nn.BCELoss(mask, reduction='none')(inputs, targets.float())
     # cost = torch.mean(cost.float().mean((1, 2, 3))) # before sum
     cost = torch.sum(cost.float().mean((1, 2, 3))) # before sum
@@ -80,16 +81,20 @@ def bdrloss(prediction, label, radius,device='cpu'):
     The boundary tracing loss that handles the confusing pixels.
     '''
 
-    filt = torch.ones(1, 1, 2*radius+1, 2*radius+1)
+    filt = torch.ones(1, 1, 2*radius+1, 2*radius+1)     # 4维 [batch, c, h w]
     filt.requires_grad = False
     filt = filt.to(device)
 
-    bdr_pred = prediction * label
-    pred_bdr_sum = label * F.conv2d(bdr_pred, filt, bias=None, stride=1, padding=radius)
+    bdr_pred = prediction * label       # pred上 只留下label=1的
+    # 用1filter对进行卷积，像素位置上是对patch内的值的求和。
+    pred_bdr_sum = label * F.conv2d(bdr_pred, filt, bias=None, stride=1, padding=radius)    # 对卷积完的，再次只留下label=1的
+    # texture_mask： 点为中心的patch内有无edge。 只要label对应区域内有》0的值，即edge，texture_mask对应位置就》0
     texture_mask = F.conv2d(label.float(), filt, bias=None, stride=1, padding=radius)
     mask = (texture_mask != 0).float()
-    mask[label == 1] = 0
-    pred_texture_sum = F.conv2d(prediction * (1-label) * mask, filt, bias=None, stride=1, padding=radius)
+    # 不计算patch中的edge。 论文公式2的 R \ L 部分
+    mask[label == 1] = 0        
+    # 这里乘(1-label) 和上一行作用重复了
+    pred_texture_sum = F.conv2d(prediction * (1-label) * mask, filt, bias=None, stride=1, padding=radius)       # 对预测错的
 
     softmax_map = torch.clamp(pred_bdr_sum / (pred_texture_sum + pred_bdr_sum + 1e-10), 1e-10, 1 - 1e-10)
     cost = -label * torch.log(softmax_map)
@@ -134,8 +139,8 @@ def cats_loss(prediction, label, l_weight=[0.,0.], device='cpu'):
         num_negative = torch.sum((mask == 0).float()).float()
         beta = num_negative / (num_positive + num_negative)
         mask[mask == 1] = beta
-        mask[mask == 0] = balanced_w * (1 - beta)
-        mask[mask == 2] = 0
+        mask[mask == 0] = balanced_w * (1 - beta)       # 这里感觉写反了
+        mask[mask == 2] = 0     # 一般没有2
     prediction = torch.sigmoid(prediction)
     # print('bce')
     cost = torch.sum(torch.nn.functional.binary_cross_entropy(

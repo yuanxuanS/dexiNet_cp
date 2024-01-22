@@ -25,17 +25,17 @@ def train_one_epoch(epoch, dataloader, model, criterion, optimizer, device,
     model.train()
     # l_weight = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.1]  # for bdcn ori loss
      # before [0.6,0.6,1.1,1.1,0.4,0.4,1.3] [0.4,0.4,1.1,1.1,0.6,0.6,1.3],[0.4,0.4,1.1,1.1,0.8,0.8,1.3]
-    l_weight = [0.7,0.7,1.1,1.1,0.3,0.3,1.3] # New BDCN  loss
-    # l_weight = [[0.05, 2.], [0.05, 2.], [0.05, 2.],
-    #             [0.1, 1.], [0.1, 1.], [0.1, 1.],
-    #             [0.01, 4.]]  # for cats loss
+    # l_weight = [0.7,0.7,1.1,1.1,0.3,0.3,1.3] # New BDCN  loss
+    l_weight = [[0.05, 2.], [0.05, 2.], [0.05, 2.],
+                [0.1, 1.], [0.1, 1.], [0.1, 1.],
+                [0.01, 4.]]  # for cats loss
     loss_avg =[]
     for batch_id, sample_batched in enumerate(dataloader):
         images = sample_batched['images'].to(device)  # BxCxHxW
         labels = sample_batched['labels'].to(device)  # BxHxW
-        preds_list = model(images)
-        # loss = sum([criterion(preds, labels, l_w, device) for preds, l_w in zip(preds_list, l_weight)])  # cats_loss
-        loss = sum([criterion(preds, labels,l_w) for preds, l_w in zip(preds_list,l_weight)]) # bdcn_loss
+        preds_list = model(images, labels)
+        loss = sum([criterion(preds, labels, l_w, device) for preds, l_w in zip(preds_list, l_weight)])  # cats_loss
+        # loss = sum([criterion(preds, labels,l_w) for preds, l_w in zip(preds_list,l_weight)]) # bdcn_loss
         # loss = sum([criterion(preds, labels) for preds in preds_list])  #HED loss, rcf_loss
         optimizer.zero_grad()
         loss.backward()
@@ -100,10 +100,10 @@ def validate_one_epoch(epoch, dataloader, model, device, output_dir, arg=None):
     with torch.no_grad():
         for _, sample_batched in enumerate(dataloader):
             images = sample_batched['images'].to(device)
-            # labels = sample_batched['labels'].to(device)
+            labels = sample_batched['labels'].to(device)
             file_names = sample_batched['file_names']
             image_shape = sample_batched['image_shape']
-            preds = model(images)
+            preds = model(images, labels)
             # print('pred shape', preds[0].shape)
             save_image_batch_to_disk(preds[-1],
                                      output_dir,
@@ -136,7 +136,7 @@ def test(checkpoint_path, dataloader, model, device, output_dir, args):
             end = time.perf_counter()
             if device.type == 'cuda':
                 torch.cuda.synchronize()
-            preds = model(images)
+            preds = model(images, labels)
             if device.type == 'cuda':
                 torch.cuda.synchronize()
             tmp_duration = time.perf_counter() - end
@@ -177,8 +177,8 @@ def testPich(checkpoint_path, dataloader, model, device, output_dir, args):
             start_time = time.time()
             # images2 = images[:, [1, 0, 2], :, :]  #GBR
             images2 = images[:, [2, 1, 0], :, :] # RGB
-            preds = model(images)
-            preds2 = model(images2)
+            preds = model(images, labels)
+            preds2 = model(images2, labels)
             tmp_duration = time.time() - start_time
             total_duration.append(tmp_duration)
             save_image_batch_to_disk([preds,preds2],
@@ -207,7 +207,7 @@ def parse_args():
     TEST_DATA = DATASET_NAMES[parser.parse_args().choose_test_data] # max 8
     test_inf = dataset_info(TEST_DATA, is_linux=IS_LINUX)
     test_dir = test_inf['data_dir']
-    is_testing =True#  current test -352-SM-NewGT-2AugmenPublish
+    is_testing =False#  current test -352-SM-NewGT-2AugmenPublish
 
     # Training settings
     TRAIN_DATA = DATASET_NAMES[0] # BIPED=0, MDBD=6
@@ -227,8 +227,8 @@ def parse_args():
     this_time = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
     parser.add_argument('--output_dir',
                         type=str,
-                        # default='exper/checkpoints_pp/'+this_time,
-                        default='exper/checkpoints_pp/2024-01-17_16-56-25',
+                        default='exper/checkpoints_pp/'+this_time,
+                        # default='exper/checkpoints_pp/2024-01-20_19-16-11',
                         # +this_time,
                         help='the path to output the results.')
     parser.add_argument('--train_data',
@@ -274,7 +274,7 @@ def parse_args():
                         help='Image height for testing.')
     parser.add_argument('--res_dir',
                         type=str,
-                        default='result_pp/2024-01-17_16-56-25',
+                        default='result_pp/2024-01-20_19-16-11',
                         help='Result directory')
     parser.add_argument('--log_interval_vis',
                         type=int,
@@ -349,7 +349,7 @@ def main(args):
         from torch.utils.tensorboard import SummaryWriter # for torch 1.4 or greather
         tb_writer = SummaryWriter(log_dir=training_dir)
         # saving Model training settings
-        training_notes = ['DexiNed, Xavier Normal Init, LR= ' + str(args.lr) + ' WD= '
+        training_notes = ['DexiNed, add label! Xavier Normal Init, LR= ' + str(args.lr) + ' WD= '
                           + str(args.wd) + ' image size = ' + str(args.img_width)
                           + ' adjust LR='+ str(args.adjust_lr) + ' Loss Function= BDCNloss2. '
                           +'Trained on> '+args.train_data+' Tested on> '
@@ -415,7 +415,7 @@ def main(args):
         print('-------------------------------------------------------')
         return
 
-    criterion = bdcn_loss2 # hed_loss2 #bdcn_loss2
+    criterion = cats_loss #bdcn_loss2 # hed_loss2 #bdcn_loss2
 
     optimizer = optim.Adam(model.parameters(),
                            lr=args.lr,
