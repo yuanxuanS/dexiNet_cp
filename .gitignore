@@ -14,7 +14,7 @@ checkpoints/
 checkpoints_pp/
 datasets/
 result/
-result_pp/
+# result_pp/
 *.zip
 .vscode/
 data/

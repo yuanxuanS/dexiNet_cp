@@ -236,6 +236,11 @@ class DexiNed(nn.Module):
         
         # add canny
         self.add_canny = True
+        self.canny_conv = True
+        # if self.add_canny:
+        #     if self.canny_conv:
+        #         self.dblock_canny = _DenseBlock(3, 3, 512)  # block num, input_feature, out_feature
+        #         self.side_canny = SingleConvBlock(3, 512, 1)   #  feature dims in blk, out_feature, stride
         self.add_label = False
         
     def slice(self, tensor, slice_shape):
@@ -256,31 +261,37 @@ class DexiNed(nn.Module):
         if self.add_canny:
             # get canny
             batch_s = x.size()[0]
-            canny_batch = torch.zeros_like(x)
+            w, h = x.size()[-2], x.size()[-1]
+            canny_batch = torch.zeros((batch_s, 1, w, h))
             for b in range(batch_s):
                 x_ = x[b, ...]
                 canny_ = torch.Tensor(cv2.Canny(np.array(x_.clone().to("cpu").squeeze(0).permute(1,2,0), dtype=np.uint8), 100, 200))       # 非极大阈值的 两个阈值
                 canny_ = canny_.unsqueeze(0).unsqueeze(0).to(x_.device)# same dims, same device
                 canny_batch[b, ...] = canny_
-            canny_maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        
+            canny_maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1).to(x_.device)
+            canny_batch = canny_batch.to(x_.device)
+            # if self.canny_conv:
+            #     self.side_canny()
         if self.add_label:
             label_maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-            
+        
+        # 
+        
+        
         # Block 1
         block_1 = self.block_1(x)   # I / 2
         block_1_side = self.side_1(block_1)
 
         if self.add_canny:        
             # add canny before next block
-            block_1 = block_1 + canny_maxpool(canny_)
+            block_1 = block_1 + canny_maxpool(canny_batch)
         if self.add_label:
             block_1 = block_1 + label_maxpool(y)
         # Block 2
         block_2 = self.block_2(block_1)     
         if self.add_canny:
             # add canny before next block
-            block_2 = block_2 + canny_maxpool(canny_)
+            block_2 = block_2 + canny_maxpool(canny_batch)
         if self.add_label:
             block_2 = block_2 + label_maxpool(y)
         block_2_down = self.maxpool(block_2)    # /2
@@ -294,7 +305,7 @@ class DexiNed(nn.Module):
         block_3, _ = self.dblock_3([block_2_add, block_3_pre_dense])        # /2
         if self.add_canny:
             # add canny before next block
-            block_3 = block_3 + canny_maxpool(canny_maxpool(canny_))
+            block_3 = block_3 + canny_maxpool(canny_maxpool(canny_batch))
         if self.add_label:
             block_3 = block_3 + label_maxpool(label_maxpool(y))
         block_3_down = self.maxpool(block_3) # [128,256,50,50]
@@ -307,7 +318,7 @@ class DexiNed(nn.Module):
         block_4, _ = self.dblock_4([block_3_add, block_4_pre_dense])        # /2
         if self.add_canny:
             # add canny before next block
-            block_4 = block_4 + canny_maxpool(canny_maxpool(canny_maxpool(canny_)))
+            block_4 = block_4 + canny_maxpool(canny_maxpool(canny_maxpool(canny_batch)))
         if self.add_label:
             block_4 = block_4 + label_maxpool(label_maxpool(label_maxpool(y)))
         block_4_down = self.maxpool(block_4)
@@ -320,7 +331,7 @@ class DexiNed(nn.Module):
         block_5, _ = self.dblock_5([block_4_add, block_5_pre_dense])        # /2
         if self.add_canny:
             # add canny before next block
-            block_5 = block_5 + canny_maxpool(canny_maxpool(canny_maxpool(canny_maxpool(canny_))))
+            block_5 = block_5 + canny_maxpool(canny_maxpool(canny_maxpool(canny_maxpool(canny_batch))))
         if self.add_label:
             block_5 = block_5 + label_maxpool(label_maxpool(label_maxpool(label_maxpool(y))))
         block_5_add = block_5 + block_4_side
@@ -330,7 +341,7 @@ class DexiNed(nn.Module):
         block_6, _ = self.dblock_6([block_5_add, block_6_pre_dense])
         if self.add_canny:
             # add canny before next block
-            block_6 = block_6 + canny_maxpool(canny_maxpool(canny_maxpool(canny_maxpool(canny_))))
+            block_6 = block_6 + canny_maxpool(canny_maxpool(canny_maxpool(canny_maxpool(canny_batch))))
         if self.add_label:
             block_6 = block_6 + label_maxpool(label_maxpool(label_maxpool(label_maxpool(y))))
         # upsampling blocks

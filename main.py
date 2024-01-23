@@ -25,17 +25,17 @@ def train_one_epoch(epoch, dataloader, model, criterion, optimizer, device,
     model.train()
     # l_weight = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.1]  # for bdcn ori loss
      # before [0.6,0.6,1.1,1.1,0.4,0.4,1.3] [0.4,0.4,1.1,1.1,0.6,0.6,1.3],[0.4,0.4,1.1,1.1,0.8,0.8,1.3]
-    # l_weight = [0.7,0.7,1.1,1.1,0.3,0.3,1.3] # New BDCN  loss
-    l_weight = [[0.05, 2.], [0.05, 2.], [0.05, 2.],
-                [0.1, 1.], [0.1, 1.], [0.1, 1.],
-                [0.01, 4.]]  # for cats loss
+    l_weight = [0.7,0.7,1.1,1.1,0.3,0.3,1.3] # New BDCN  loss
+    # l_weight = [[0.05, 2.], [0.05, 2.], [0.05, 2.],
+    #             [0.1, 1.], [0.1, 1.], [0.1, 1.],
+    #             [0.01, 4.]]  # for cats loss
     loss_avg =[]
     for batch_id, sample_batched in enumerate(dataloader):
         images = sample_batched['images'].to(device)  # BxCxHxW
         labels = sample_batched['labels'].to(device)  # BxHxW
         preds_list = model(images, labels)
-        loss = sum([criterion(preds, labels, l_w, device) for preds, l_w in zip(preds_list, l_weight)])  # cats_loss
-        # loss = sum([criterion(preds, labels,l_w) for preds, l_w in zip(preds_list,l_weight)]) # bdcn_loss
+        # loss = sum([criterion(preds, labels, l_w, device) for preds, l_w in zip(preds_list, l_weight)])  # cats_loss
+        loss = sum([criterion(preds, labels,l_w) for preds, l_w in zip(preds_list,l_weight)]) # bdcn_loss
         # loss = sum([criterion(preds, labels) for preds in preds_list])  #HED loss, rcf_loss
         optimizer.zero_grad()
         loss.backward()
@@ -214,7 +214,7 @@ def parse_args():
     train_inf = dataset_info(TRAIN_DATA, is_linux=IS_LINUX)
     train_dir = train_inf['data_dir']
 
-
+ 
     # Data parameters
     parser.add_argument('--input_dir',
                         type=str,
@@ -228,7 +228,7 @@ def parse_args():
     parser.add_argument('--output_dir',
                         type=str,
                         default='exper/checkpoints_pp/'+this_time,
-                        # default='exper/checkpoints_pp/2024-01-20_19-16-11',
+                        # default='exper/checkpoints_pp/2024-01-22_15-08-57',
                         # +this_time,
                         help='the path to output the results.')
     parser.add_argument('--train_data',
@@ -274,7 +274,7 @@ def parse_args():
                         help='Image height for testing.')
     parser.add_argument('--res_dir',
                         type=str,
-                        default='result_pp/2024-01-20_19-16-11',
+                        default='result_pp/2024-01-22_15-08-57',
                         help='Result directory')
     parser.add_argument('--log_interval_vis',
                         type=int,
@@ -415,7 +415,7 @@ def main(args):
         print('-------------------------------------------------------')
         return
 
-    criterion = cats_loss #bdcn_loss2 # hed_loss2 #bdcn_loss2
+    criterion = bdcn_loss2 # hed_loss2 #bdcn_loss2cats_loss #
 
     optimizer = optim.Adam(model.parameters(),
                            lr=args.lr,
