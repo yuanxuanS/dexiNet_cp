@@ -207,7 +207,7 @@ def parse_args():
     TEST_DATA = DATASET_NAMES[parser.parse_args().choose_test_data] # max 8
     test_inf = dataset_info(TEST_DATA, is_linux=IS_LINUX)
     test_dir = test_inf['data_dir']
-    is_testing =False#  current test -352-SM-NewGT-2AugmenPublish
+    is_testing =True#  current test -352-SM-NewGT-2AugmenPublish
 
     # Training settings
     TRAIN_DATA = DATASET_NAMES[0] # BIPED=0, MDBD=6
@@ -227,8 +227,8 @@ def parse_args():
     this_time = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
     parser.add_argument('--output_dir',
                         type=str,
-                        default='exper/checkpoints_pp/'+this_time,
-                        # default='exper/checkpoints_pp/2024-01-22_15-08-57',
+                        # default='exper/checkpoints_pp/'+this_time,
+                        default='exper/checkpoints_pp/2024-01-24_08-59-28',
                         # +this_time,
                         help='the path to output the results.')
     parser.add_argument('--train_data',
@@ -274,7 +274,7 @@ def parse_args():
                         help='Image height for testing.')
     parser.add_argument('--res_dir',
                         type=str,
-                        default='result_pp/2024-01-22_15-08-57',
+                        default='result_pp/2024-01-24_08-59-28',
                         help='Result directory')
     parser.add_argument('--log_interval_vis',
                         type=int,

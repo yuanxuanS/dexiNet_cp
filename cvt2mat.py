@@ -7,8 +7,8 @@ import numpy as np
 import scipy.io as io
 # convert GT to .mat
 # src_dir = "/home/panpan/DexiNed/datasets/BIPEDv2/BIPEDv2/BIPED/edges/edge_maps/test/rgbr/"
-src_dir = "/home/panpan/DexiNed/result_pp/2024-01-22_15-08-57/BIPED2BIPED_pp/avg/"
-save_dir = "/home/panpan/DexiNed/result_pp/2024-01-22_15-08-57/BIPED2BIPED_pp/avg_mat/"
+src_dir = "/home/panpan/DexiNed/result_pp/2024-01-24_08-59-28/BIPED2BIPED_pp/avg/"
+save_dir = "/home/panpan/DexiNed/result_pp/2024-01-24_08-59-28/BIPED2BIPED_pp/avg_mat/"
 # save_dir = "/home/panpan/DexiNed/datasets/BIPEDv2/BIPEDv2/BIPED/edges/edge_maps/test/rgbr_mat/"
 
 all_file = os.walk(src_dir)
