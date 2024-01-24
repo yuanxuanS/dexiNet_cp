@@ -232,17 +232,24 @@ class DexiNed(nn.Module):
         # self.block_cat = CoFusion(6,6)# cats fusion method
 
 
-        self.apply(weight_init)
+        
         
         # add canny
         self.add_canny = True
         self.canny_conv = True
         self.norm_canny = True
-        # if self.add_canny:
-        #     if self.canny_conv:
-        #         self.dblock_canny = _DenseBlock(3, 3, 512)  # block num, input_feature, out_feature
-        #         self.side_canny = SingleConvBlock(3, 512, 1)   #  feature dims in blk, out_feature, stride
+        self.canny_blk_type = "canny_blk"
+        if self.add_canny:
+            if self.canny_conv:
+                if self.canny_blk_type == "canny_blk":
+                    self.block_canny = _CannyBlock(3, 1, 512)
+                    self.side_canny = SingleConvBlock(512, 1, 1)
+                else:
+                    self.dblock_canny = _DenseBlock(3, 1, 512)  # block num, input_feature, out_feature
+                    self.side_canny = SingleConvBlock(512, 1, 1)   #  feature dims in blk, out_feature, stride
         self.add_label = False
+        
+        self.apply(weight_init)
         
     def slice(self, tensor, slice_shape):
         t_shape = tensor.shape
@@ -275,8 +282,9 @@ class DexiNed(nn.Module):
             canny_maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1).to(x_.device)
             canny_batch = canny_batch.to(x_.device)
             
-            # if self.canny_conv:
-            #     self.side_canny()
+            if self.canny_conv:
+                if self.canny_blk_type == "canny_blk":
+                    canny_batch = self.side_canny(self.block_canny(canny_batch))
             
             
         if self.add_label:
