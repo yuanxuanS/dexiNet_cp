@@ -9,7 +9,7 @@ import cv2
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from datasets import DATASET_NAMES, BipedDataset, TestDataset, dataset_info
+from datasets import DATASET_NAMES, BipedDataset, DUTSDataset, TestDataset, dataset_info
 from losses import *
 from model import DexiNed
 from utils import (image_normalization, save_image_batch_to_disk,
@@ -34,7 +34,9 @@ def train_one_epoch(epoch, dataloader, model, criterion, optimizer, device,
         images = sample_batched['images'].to(device)  # BxCxHxW
         labels = sample_batched['labels'].to(device)  # BxHxW
         preds_list = model(images, labels)
-        loss = sum([criterion(preds, labels, l_w, device) for preds, l_w in zip(preds_list, l_weight)])  # cats_loss
+        
+        loss = sum([criterion(preds, labels) for preds in preds_list])
+        # loss = sum([criterion(preds, labels, l_w, device) for preds, l_w in zip(preds_list, l_weight)])  # cats_loss
         # loss = sum([criterion(preds, labels,l_w) for preds, l_w in zip(preds_list,l_weight)]) # bdcn_loss
         # loss = sum([criterion(preds, labels) for preds in preds_list])  #HED loss, rcf_loss
         optimizer.zero_grad()
@@ -199,7 +201,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='DexiNed trainer.')
     parser.add_argument('--choose_test_data',
                         type=int,
-                        default=0,
+                        default=-1,
                         help='Already set the dataset for testing choice: 0 - 8')
     # ----------- test -------0--
 
@@ -207,10 +209,10 @@ def parse_args():
     TEST_DATA = DATASET_NAMES[parser.parse_args().choose_test_data] # max 8
     test_inf = dataset_info(TEST_DATA, is_linux=IS_LINUX)
     test_dir = test_inf['data_dir']
-    is_testing =False#  current test -352-SM-NewGT-2AugmenPublish
+    is_testing =True#  current test -352-SM-NewGT-2AugmenPublish
 
     # Training settings
-    TRAIN_DATA = DATASET_NAMES[0] # BIPED=0, MDBD=6
+    TRAIN_DATA = DATASET_NAMES[-1] # BIPED=0, MDBD=6, DUTS=-1
     train_inf = dataset_info(TRAIN_DATA, is_linux=IS_LINUX)
     train_dir = train_inf['data_dir']
 
@@ -227,8 +229,8 @@ def parse_args():
     this_time = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
     parser.add_argument('--output_dir',
                         type=str,
-                        default='exper/checkpoints_pp/'+this_time,
-                        # default='exper/checkpoints_pp/2024-01-24_08-59-28',
+                        # default='exper/checkpoints_pp/'+this_time,
+                        default='exper/checkpoints_pp/2024-01-28_21-57-17',
                         # +this_time,
                         help='the path to output the results.')
     parser.add_argument('--train_data',
@@ -274,7 +276,7 @@ def parse_args():
                         help='Image height for testing.')
     parser.add_argument('--res_dir',
                         type=str,
-                        default='result_pp/2024-01-24_08-59-28',
+                        default='result_pp/2024-01-28_21-57-17',
                         help='Result directory')
     parser.add_argument('--log_interval_vis',
                         type=int,
@@ -314,7 +316,7 @@ def parse_args():
     parser.add_argument('--img_width',
                         type=int,
                         default=352,
-                        help='Image width for training.') # BIPED 400 BSDS 352/320 MDBD 480
+                        help='Image width for training.') # BIPED 400 BSDS 352/320 MDBD 480 
     parser.add_argument('--img_height',
                         type=int,
                         default=352,
@@ -372,14 +374,27 @@ def main(args):
             model.load_state_dict(torch.load(checkpoint_path,
                                          map_location=device))
             print('Training restarted from> ',checkpoint_path)
-        dataset_train = BipedDataset(args.input_dir,
-                                     img_width=args.img_width,
-                                     img_height=args.img_height,
-                                     mean_bgr=args.mean_pixel_values[0:3] if len(
-                                         args.mean_pixel_values) == 4 else args.mean_pixel_values,
-                                     train_mode='train',
-                                     arg=args
-                                     )
+        
+        dataset_name = "DUTS"
+        
+        if dataset_name == "diped":
+            dataset_train = BipedDataset(args.input_dir,
+                                        img_width=args.img_width,
+                                        img_height=args.img_height,
+                                        mean_bgr=args.mean_pixel_values[0:3] if len(
+                                            args.mean_pixel_values) == 4 else args.mean_pixel_values,
+                                        train_mode='train',
+                                        arg=args
+                                        )
+        elif dataset_name == "DUTS":
+            dataset_train = DUTSDataset(args.input_dir,
+                                        img_width=args.img_width,
+                                        img_height=args.img_height,
+                                        mean_bgr=args.mean_pixel_values[0:3] if len(
+                                            args.mean_pixel_values) == 4 else args.mean_pixel_values,
+                                        train_mode='train',
+                                        arg=args
+                                        )
         dataloader_train = DataLoader(dataset_train,
                                       batch_size=args.batch_size,
                                       shuffle=True,
@@ -415,7 +430,7 @@ def main(args):
         print('-------------------------------------------------------')
         return
 
-    criterion = cats_loss #bdcn_loss2 # hed_loss2 #bdcn_loss2
+    criterion = PDNet_bce_loss #bdcn_loss2 # hed_loss2 #bdcn_loss2
 
     optimizer = optim.Adam(model.parameters(),
                            lr=args.lr,

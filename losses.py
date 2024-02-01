@@ -2,6 +2,12 @@ import torch
 import torch.nn.functional as F
 from dexi_utils import *
 
+def PDNet_bce_loss(inputs, targets):
+    # mask = targets.float()
+    inputs= torch.sigmoid(inputs)
+    cost = torch.nn.BCELoss(reduction='none')(inputs, targets.float())
+    final_cost = torch.sum(cost)
+    return final_cost
 
 def hed_loss2(inputs, targets, l_weight=1.1):
     # bdcn loss with the rcf approach
@@ -133,16 +139,26 @@ def cats_loss(prediction, label, l_weight=[0.,0.], device='cpu'):
     label = label.float()
     prediction = prediction.float()
     with torch.no_grad():
-        mask = label.clone()
+        mask = label.clone()        # 原来是0,1值
 
         num_positive = torch.sum((mask == 1).float()).float()
         num_negative = torch.sum((mask == 0).float()).float()
         beta = num_negative / (num_positive + num_negative)
-        mask[mask == 1] = beta
-        mask[mask == 0] = balanced_w * (1 - beta)       # 这里感觉写反了
+        # mask[mask == 1] = beta      # 给positive赋权重beta
+        # mask[mask == 0] = balanced_w * (1 - beta)       # 这里感觉写反了
+        posit_mask = mask == 1
+        mask[mask == 1] = balanced_w * beta
+        mask[mask == 0] = 1 - beta
         mask[mask == 2] = 0     # 一般没有2
     prediction = torch.sigmoid(prediction)
     # print('bce')
+    ## 给hard sample部分的loss加倍
+    # c = torch.nn.functional.binary_cross_entropy(
+    #     prediction.float(), label.float(), weight=mask, reduce=False)
+    # thres = c.min() + 0.8*(c.max() - c.min())
+    # hard_mask = (c>thres) * (posit_mask == 1)
+    # mask[hard_mask] *= 10       # 正样本的hard sample的loss加倍
+    
     cost = torch.sum(torch.nn.functional.binary_cross_entropy(
         prediction.float(), label.float(), weight=mask, reduce=False))
     label_w = (label != 0).float()

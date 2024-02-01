@@ -9,6 +9,9 @@ import json
 
 DATASET_NAMES = [
     'BIPED',
+    'BIPED_patch',
+    'BIPED_pred',
+    'others',
     'BSDS',
     'BRIND',
     'BSDS300',
@@ -17,7 +20,9 @@ DATASET_NAMES = [
     'MDBD', #5
     'PASCAL',
     'NYUD',
-    'CLASSIC'
+    'CLASSIC',
+    # salient OB
+    'DUTS'
 ]  # 8
 
 
@@ -87,6 +92,38 @@ def dataset_info(dataset_name, is_linux=True):
                 'test_list': 'test_pair.lst',
                 'train_list': 'train_rgb.lst',
                 'data_dir': '/home/panpan/DexiNed/datasets/BIPEDv2/BIPEDv2/BIPED/',  # mean_rgb
+                'yita': 0.5
+            },
+            'BIPED_patch': {
+                'img_height': 720, #720 # 1088
+                'img_width': 1280, # 1280 5 1920
+                'test_list': 'test_pair.lst',
+                'train_list': 'train_rgb.lst',
+                'data_dir': '/home/panpan/DexiNed/datasets/BIPEDv2/BIPEDv2/BIPED_patch/',  # mean_rgb
+                'yita': 0.5
+            },
+            'BIPED_pred': {
+                'img_height': 720, #720 # 1088
+                'img_width': 1280, # 1280 5 1920
+                'test_list': 'test_pair.lst',
+                'train_list': 'train_rgb.lst',
+                'data_dir': '/home/panpan/DexiNed/datasets/BIPEDv2/BIPEDv2/BIPED_pred/',  # mean_rgb
+                'yita': 0.5
+            },
+            'others': {
+                'img_height': 720, #720 # 1088
+                'img_width': 1280, # 1280 5 1920
+                'test_list': 'test_pair.lst',
+                'train_list': 'train_rgb.lst',
+                'data_dir': '/home/panpan/DexiNed/datasets/BIPEDv2/BIPEDv2/others/',  # mean_rgb
+                'yita': 0.5
+            },
+            'DUTS': {
+                'img_height': 720, #720 # 1088
+                'img_width': 1280, # 1280 5 1920
+                'test_list': 'test.lst',
+                'train_list': 'train.lst',
+                'data_dir': '/home/panpan/DexiNed/datasets/DUTS/',  
                 'yita': 0.5
             },
             'CLASSIC': {
@@ -488,3 +525,90 @@ class BipedDataset(Dataset):
         img = torch.from_numpy(img.copy()).float()
         gt = torch.from_numpy(np.array([gt])).float()
         return img, gt
+
+class DUTSDataset(Dataset):
+    train_modes = ['train', 'test', ]
+    dataset_types = ['rgbr', ]
+    # data_types = ["real", "p1", ""]
+
+    def __init__(self,
+                 data_root,
+                 img_height,
+                 img_width,
+                 mean_bgr,
+                 train_mode='train',
+                 dataset_type='rgbr',
+                 #  is_scaling=None,
+                 # Whether to crop image or otherwise resize image to match image height and width.
+                 crop_img=False,
+                 arg=None
+                 ):
+        self.data_root = data_root
+        self.train_mode = train_mode
+        self.dataset_type = dataset_type
+        # self.data_type = 'real'  # be aware that this might change in the future
+        self.img_height = 224
+        self.img_width = 224
+        self.mean_bgr = mean_bgr
+        self.crop_img = crop_img
+        self.arg = arg
+
+        self.data_index = self._build_index()
+
+    def _build_index(self):
+        assert self.train_mode in self.train_modes, self.train_mode
+        # assert self.dataset_type in self.dataset_types, self.dataset_type
+        # assert self.data_type in self.data_types, self.data_type
+
+        data_root = os.path.abspath(self.data_root)
+        sample_indices = []
+        if self.arg.train_data.lower()=='duts':
+
+            
+            file_path = os.path.join(data_root, self.arg.train_list)
+            with open(file_path, 'r') as f:
+                files = f.readlines()
+            # files = [line.strip() for line in files]
+
+            pairs = [line.split() for line in files]
+            for pair in pairs:
+                tmp_img = pair[0]
+                tmp_gt = pair[1]
+                sample_indices.append(
+                    (os.path.join(data_root,tmp_img),
+                        os.path.join(data_root,tmp_gt),))
+            
+
+        return sample_indices
+
+    def __len__(self):
+        return len(self.data_index)
+
+    def __getitem__(self, idx):
+        # get data sample
+        image_path, label_path = self.data_index[idx]
+
+        # load data
+        image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+        label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)
+        image, label = self.transform(img=image, label=label)
+        return dict(images=image, labels=label)
+
+    def transform(self, img, label):
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = cv2.resize(img,(224,224),interpolation=cv2.INTER_CUBIC)
+        img=img.astype(np.float32)/255.
+        
+        label = cv2.resize(label,(224,224),interpolation=cv2.INTER_CUBIC)
+        label = label.astype(np.float32)
+        label /=255
+        label[label > 0.5]=1
+        label[label <=0.5]=0
+        label=label.astype(np.uint8)
+        label = label.reshape(224,224,1)
+        label = label.transpose((2, 0, 1))
+        
+        img = img.transpose((2, 0, 1))
+        img = torch.from_numpy(img.copy()).float()
+        label = torch.from_numpy(label).float()
+        return img, label

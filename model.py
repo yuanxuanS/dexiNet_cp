@@ -235,9 +235,9 @@ class DexiNed(nn.Module):
         
         
         # add canny
-        self.add_canny = True
-        self.canny_conv = True
-        self.norm_canny = True
+        self.add_canny = False
+        self.canny_conv = False
+        self.norm_canny = False
         self.canny_blk_type = "canny_blk"
         if self.add_canny:
             if self.canny_conv:
@@ -273,7 +273,9 @@ class DexiNed(nn.Module):
             canny_batch = torch.zeros((batch_s, 1, w, h))
             for b in range(batch_s):
                 x_ = x[b, ...]
-                canny_ = torch.Tensor(cv2.Canny(np.array(x_.clone().to("cpu").squeeze(0).permute(1,2,0), dtype=np.uint8), 100, 200))       # 非极大阈值的 两个阈值
+                canny_array = cv2.Canny(np.array(x_.clone().to("cpu").squeeze(0).permute(1,2,0), dtype=np.uint8), 100, 200)
+                cv2.imwrite("test_canny.png", canny_array)
+                canny_ = torch.Tensor(canny_array)       # 非极大阈值的 两个阈值
                 canny_ = canny_.unsqueeze(0).unsqueeze(0).to(x_.device)# same dims, same device
                 
                 if self.norm_canny:
